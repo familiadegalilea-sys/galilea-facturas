@@ -59,6 +59,21 @@
   <a href="nueva-factura.html" class="fab" title="Nueva factura">＋</a>
 </div>
 
+<!-- Modal de confirmación para eliminar -->
+<div id="modal-overlay" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <h2 id="modal-titulo" class="modal-titulo">Eliminar factura</h2>
+    <p class="modal-texto">¿Seguro que querés eliminar esta factura? Esta acción no se puede deshacer.</p>
+    <div class="modal-acciones">
+      <button id="modal-cancelar" class="btn btn-secundario">Cancelar</button>
+      <button id="modal-confirmar" class="btn btn-eliminar">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de confirmación -->
+<div id="toast" class="toast" hidden>Factura eliminada</div>
+
 <!-- Dependencias -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

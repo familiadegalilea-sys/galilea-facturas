@@ -20,10 +20,98 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mensajeSinResultados = document.getElementById('sin-resultados');
   const btnDescargarExcel = document.getElementById('btn-descargar-excel');
 
+  // Modal de eliminación
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalCancelar = document.getElementById('modal-cancelar');
+  const modalConfirmar = document.getElementById('modal-confirmar');
+  const toast = document.getElementById('toast');
+
   let todasLasFacturas = [];
   let facturasFiltradas = [];
 
-  // Cargar facturas desde Supabase
+  // Acción pendiente de confirmación: { factura, divElement }
+  let pendienteEliminar = null;
+
+  // --- Modal ---
+
+  function abrirModal(factura, divElement) {
+    pendienteEliminar = { factura, divElement };
+    modalOverlay.hidden = false;
+  }
+
+  function cerrarModal() {
+    pendienteEliminar = null;
+    modalOverlay.hidden = true;
+  }
+
+  modalCancelar.addEventListener('click', cerrarModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) cerrarModal();
+  });
+
+  modalConfirmar.addEventListener('click', async () => {
+    if (!pendienteEliminar) return;
+    const { factura, divElement } = pendienteEliminar;
+    cerrarModal();
+    await eliminarFactura(factura, divElement);
+  });
+
+  // --- Eliminar factura ---
+
+  async function eliminarFactura(factura, divElement) {
+    // Bloquear visualmente la fila mientras se procesa
+    divElement.style.opacity = '0.5';
+    divElement.style.pointerEvents = 'none';
+
+    try {
+      // 1. Borrar archivos del bucket de Storage
+      if (factura.imagenes_url && factura.imagenes_url.length > 0) {
+        const rutas = factura.imagenes_url.map((url) => {
+          // La URL pública tiene el formato: .../storage/v1/object/public/facturas-imagenes/RUTA
+          const prefijo = '/storage/v1/object/public/facturas-imagenes/';
+          return new URL(url).pathname.slice(prefijo.length);
+        });
+        await supabase.storage.from('facturas-imagenes').remove(rutas);
+      }
+
+      // 2. Borrar el registro de la tabla
+      const { error } = await supabase.from('facturas').delete().eq('id', factura.id);
+      if (error) throw new Error(error.message);
+
+      // 3. Quitar la fila del DOM y del array en memoria
+      divElement.remove();
+      todasLasFacturas = todasLasFacturas.filter((f) => f.id !== factura.id);
+      facturasFiltradas = facturasFiltradas.filter((f) => f.id !== factura.id);
+
+      if (facturasFiltradas.length === 0) {
+        mensajeSinResultados.style.display = 'block';
+      }
+
+      // 4. Mostrar toast de confirmación
+      mostrarToast();
+    } catch (err) {
+      divElement.style.opacity = '';
+      divElement.style.pointerEvents = '';
+      alert(`No se pudo eliminar: ${err.message}`);
+    }
+  }
+
+  // --- Toast ---
+
+  let timerToast = null;
+
+  function mostrarToast() {
+    toast.hidden = false;
+    toast.classList.add('toast-visible');
+    clearTimeout(timerToast);
+    timerToast = setTimeout(() => {
+      toast.classList.remove('toast-visible');
+      toast.hidden = true;
+    }, 2500);
+  }
+
+  // --- Cargar facturas desde Supabase ---
+
   async function cargarFacturas() {
     lista.innerHTML = '<p class="cargando">Cargando facturas...</p>';
 
@@ -44,28 +132,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Aplicar todos los filtros activos (texto + rango de fechas) y renderizar
   function aplicarFiltros() {
     const termino = inputBusqueda.value.trim().toLowerCase();
-    const desde = inputDesde.value;   // 'YYYY-MM-DD' o ''
-    const hasta = inputHasta.value;   // 'YYYY-MM-DD' o ''
+    const desde = inputDesde.value;
+    const hasta = inputHasta.value;
 
     const resultado = todasLasFacturas.filter((f) => {
-      // Filtro de texto
       if (termino) {
         const matchTexto =
           (f.proveedor || '').toLowerCase().includes(termino) ||
           (f.numero_factura || '').toLowerCase().includes(termino);
         if (!matchTexto) return false;
       }
-
-      // Filtro de fecha mínima
-      if (desde && f.fecha_emision) {
-        if (f.fecha_emision < desde) return false;
-      }
-
-      // Filtro de fecha máxima
-      if (hasta && f.fecha_emision) {
-        if (f.fecha_emision > hasta) return false;
-      }
-
+      if (desde && f.fecha_emision && f.fecha_emision < desde) return false;
+      if (hasta && f.fecha_emision && f.fecha_emision > hasta) return false;
       return true;
     });
 
@@ -84,8 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mensajeSinResultados.style.display = 'none';
 
     facturas.forEach((factura) => {
-      const item = crearItemFactura(factura);
-      lista.appendChild(item);
+      lista.appendChild(crearItemFactura(factura));
     });
   }
 
@@ -96,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const fechaFormateada = factura.fecha_emision
       ? new Date(factura.fecha_emision + 'T12:00:00').toLocaleDateString('es-AR', {
-          day: '2-digit', month: '2-digit', year: 'numeric'
+          day: '2-digit', month: '2-digit', year: 'numeric',
         })
       : '—';
 
@@ -137,9 +214,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
 
+    // Botón eliminar (agregado por JS para poder bindear el evento correctamente)
+    const detalle = div.querySelector('.factura-detalle');
+    const btnEliminar = document.createElement('button');
+    btnEliminar.className = 'btn-eliminar-factura';
+    btnEliminar.textContent = 'Eliminar factura';
+    btnEliminar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      abrirModal(factura, div);
+    });
+    detalle.appendChild(btnEliminar);
+
     // Toggle expandir/colapsar
     const resumen = div.querySelector('.factura-resumen');
-    const detalle = div.querySelector('.factura-detalle');
     const chevron = div.querySelector('.factura-chevron');
 
     function toggleDetalle() {
@@ -175,29 +262,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (facturasFiltradas.length === 0) return;
 
     const encabezados = [
-      'Fecha de emisión',
-      'Número de Factura',
-      'Proveedor',
-      'CUIT Proveedor',
-      'Concepto',
-      'Importe Total',
-      'CUIT Destinatario',
+      'Fecha de emisión', 'Número de Factura', 'Proveedor',
+      'CUIT Proveedor', 'Concepto', 'Importe Total', 'CUIT Destinatario',
     ];
 
     const filas = facturasFiltradas.map((f) => [
-      f.fecha_emision ?? '',
-      f.numero_factura ?? '',
-      f.proveedor ?? '',
-      f.cuit_proveedor ?? '',
-      f.concepto ?? '',
-      f.importe_total ?? '',
-      f.cuit_destinatario ?? '',
+      f.fecha_emision ?? '', f.numero_factura ?? '', f.proveedor ?? '',
+      f.cuit_proveedor ?? '', f.concepto ?? '', f.importe_total ?? '', f.cuit_destinatario ?? '',
     ]);
 
     const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, 'Facturas');
-
     const hoy = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(libro, `facturas-galilea-${hoy}.xlsx`);
   });

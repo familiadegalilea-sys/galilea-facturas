@@ -550,6 +550,125 @@ body {
   display: block;
 }
 
+/* Botón eliminar dentro del detalle */
+.btn-eliminar-factura {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px;
+  background: none;
+  border: 1.5px solid var(--error);
+  border-radius: var(--radio-sm);
+  color: var(--error);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transicion), color var(--transicion);
+}
+
+.btn-eliminar-factura:hover {
+  background: var(--error);
+  color: white;
+}
+
+/* =============================================
+   MODAL DE CONFIRMACIÓN
+   ============================================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 24px;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal {
+  background: white;
+  border-radius: var(--radio);
+  padding: 24px;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal-titulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--texto-principal);
+  margin-bottom: 10px;
+}
+
+.modal-texto {
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.modal-acciones {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-acciones .btn {
+  flex: 1;
+}
+
+.btn-eliminar {
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: var(--radio);
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transicion);
+}
+
+.btn-eliminar:hover {
+  background: #c53030;
+}
+
+/* =============================================
+   TOAST DE CONFIRMACIÓN
+   ============================================= */
+
+.toast {
+  position: fixed;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: #1A3A5C;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 600;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* =============================================
    NUEVA FACTURA
    ============================================= */
