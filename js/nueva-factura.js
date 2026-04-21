@@ -210,7 +210,15 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardar.textContent = 'Guardando...';
 
     try {
-      const urlsArchivos = await subirArchivos();
+      // Subir a Supabase Storage y a Drive en paralelo
+      const [urlsArchivos, resultadoDrive] = await Promise.all([
+        subirArchivos(),
+        subirArchivosDrive().catch(err => ({ error: err.message })),
+      ]);
+
+      if (resultadoDrive?.error) {
+        mostrarAvisoDrive(resultadoDrive.error);
+      }
 
       const { error } = await supabase.from('facturas').insert({
         fecha_emision: campoFecha.value || null,
@@ -232,6 +240,18 @@ document.addEventListener('DOMContentLoaded', () => {
       btnGuardar.textContent = '💾 Guardar factura';
     }
   });
+
+  async function subirArchivosDrive() {
+    for (const entrada of archivos) {
+      const nombreDrive = driveConstruirNombre(
+        entrada.file,
+        campoFecha.value,
+        campoProveedor.value,
+        campoConcepto.value,
+      );
+      await driveSubirArchivoFactura(entrada.file, nombreDrive);
+    }
+  }
 
   async function subirArchivos() {
     const urls = [];
@@ -270,5 +290,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function ocultarError() {
     mensajeError.style.display = 'none';
+  }
+
+  function mostrarAvisoDrive(detalle) {
+    const aviso = document.createElement('div');
+    aviso.className = 'aviso-drive';
+    aviso.textContent = `No se pudo subir a Drive: ${detalle}`;
+    mensajeError.parentNode.insertBefore(aviso, mensajeError.nextSibling);
+    setTimeout(() => aviso.remove(), 6000);
   }
 });
