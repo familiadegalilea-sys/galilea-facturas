@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const lista = document.getElementById('lista-facturas');
   const inputBusqueda = document.getElementById('busqueda');
+  const inputDesde = document.getElementById('filtro-desde');
+  const inputHasta = document.getElementById('filtro-hasta');
+  const btnLimpiar = document.getElementById('btn-limpiar-filtros');
   const mensajeSinResultados = document.getElementById('sin-resultados');
   const btnDescargarExcel = document.getElementById('btn-descargar-excel');
 
@@ -35,7 +38,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     todasLasFacturas = data || [];
-    renderizarLista(todasLasFacturas);
+    aplicarFiltros();
+  }
+
+  // Aplicar todos los filtros activos (texto + rango de fechas) y renderizar
+  function aplicarFiltros() {
+    const termino = inputBusqueda.value.trim().toLowerCase();
+    const desde = inputDesde.value;   // 'YYYY-MM-DD' o ''
+    const hasta = inputHasta.value;   // 'YYYY-MM-DD' o ''
+
+    const resultado = todasLasFacturas.filter((f) => {
+      // Filtro de texto
+      if (termino) {
+        const matchTexto =
+          (f.proveedor || '').toLowerCase().includes(termino) ||
+          (f.numero_factura || '').toLowerCase().includes(termino);
+        if (!matchTexto) return false;
+      }
+
+      // Filtro de fecha mínima
+      if (desde && f.fecha_emision) {
+        if (f.fecha_emision < desde) return false;
+      }
+
+      // Filtro de fecha máxima
+      if (hasta && f.fecha_emision) {
+        if (f.fecha_emision > hasta) return false;
+      }
+
+      return true;
+    });
+
+    renderizarLista(resultado);
   }
 
   // Renderizar la lista de facturas
@@ -136,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `<div class="miniaturas-contenedor">${imgs}</div>`;
   }
 
-  // Descargar CSV compatible con Excel en español
+  // Descargar xlsx con SheetJS (respeta el filtro activo)
   btnDescargarExcel.addEventListener('click', () => {
     if (facturasFiltradas.length === 0) return;
 
@@ -160,48 +194,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       f.cuit_destinatario ?? '',
     ]);
 
-    const escaparCelda = (valor) => {
-      const texto = String(valor);
-      // Si contiene punto y coma, salto de línea o comillas, encerrar entre comillas
-      if (texto.includes(';') || texto.includes('\n') || texto.includes('"')) {
-        return `"${texto.replace(/"/g, '""')}"`;
-      }
-      return texto;
-    };
-
-    const lineas = [
-      encabezados.map(escaparCelda).join(';'),
-      ...filas.map((fila) => fila.map(escaparCelda).join(';')),
-    ];
-
-    // BOM UTF-8 para que Excel muestre bien los acentos
-    const bom = '\uFEFF';
-    const csvContenido = bom + lineas.join('\r\n');
+    const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Facturas');
 
     const hoy = new Date().toISOString().slice(0, 10);
-    const nombreArchivo = `facturas-galilea-${hoy}.csv`;
-
-    const blob = new Blob([csvContenido], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = nombreArchivo;
-    enlace.click();
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(libro, `facturas-galilea-${hoy}.xlsx`);
   });
 
-  // Filtro de búsqueda
-  inputBusqueda.addEventListener('input', () => {
-    const termino = inputBusqueda.value.trim().toLowerCase();
-    if (!termino) {
-      renderizarLista(todasLasFacturas);
-      return;
-    }
-    const filtradas = todasLasFacturas.filter(f =>
-      (f.proveedor || '').toLowerCase().includes(termino) ||
-      (f.numero_factura || '').toLowerCase().includes(termino)
-    );
-    renderizarLista(filtradas);
+  // Listeners de filtros
+  inputBusqueda.addEventListener('input', aplicarFiltros);
+  inputDesde.addEventListener('change', aplicarFiltros);
+  inputHasta.addEventListener('change', aplicarFiltros);
+
+  btnLimpiar.addEventListener('click', () => {
+    inputBusqueda.value = '';
+    inputDesde.value = '';
+    inputHasta.value = '';
+    aplicarFiltros();
   });
 
   await cargarFacturas();

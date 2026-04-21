@@ -321,12 +321,74 @@ body {
   pointer-events: none;
 }
 
+/* Fila de filtros de fecha */
+.filtros-fecha {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.filtro-fecha-campo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filtro-fecha-campo label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.filtro-fecha-campo input[type="date"] {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radio-sm);
+  font-size: 0.88rem;
+  color: var(--texto-principal);
+  background: white;
+  font-family: inherit;
+}
+
+.filtro-fecha-campo input[type="date"]:focus {
+  outline: none;
+  border-color: var(--azul-claro);
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+}
+
+/* Fila de acciones bajo los filtros */
+.filtros-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.btn-limpiar-filtros {
+  background: none;
+  border: none;
+  color: var(--azul-claro);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.btn-limpiar-filtros:hover {
+  color: var(--azul-primario);
+}
+
 /* Botón descargar Excel */
 .btn-descargar-excel {
-  width: 100%;
-  margin-bottom: 12px;
   font-size: 0.88rem;
-  padding: 10px 16px;
+  padding: 9px 14px;
   color: var(--texto-secundario);
 }
 

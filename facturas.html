@@ -30,9 +30,23 @@
       >
     </div>
 
-    <button id="btn-descargar-excel" class="btn btn-secundario btn-descargar-excel">
-      📥 Descargar Excel
-    </button>
+    <div class="filtros-fecha">
+      <div class="filtro-fecha-campo">
+        <label for="filtro-desde">Desde</label>
+        <input type="date" id="filtro-desde">
+      </div>
+      <div class="filtro-fecha-campo">
+        <label for="filtro-hasta">Hasta</label>
+        <input type="date" id="filtro-hasta">
+      </div>
+    </div>
+
+    <div class="filtros-acciones">
+      <button id="btn-limpiar-filtros" class="btn-limpiar-filtros">Limpiar filtros</button>
+      <button id="btn-descargar-excel" class="btn btn-secundario btn-descargar-excel">
+        📥 Descargar Excel
+      </button>
+    </div>
 
     <p id="sin-resultados" class="sin-resultados">No se encontraron facturas.</p>
 
@@ -47,6 +61,7 @@
 
 <!-- Dependencias -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/facturas.js"></script>
 <script>
