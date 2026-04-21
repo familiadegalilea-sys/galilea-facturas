@@ -1,10 +1,18 @@
 // Lógica para cargar, extraer y guardar una nueva factura
 
+// Worker de PDF.js (misma versión que el CDN cargado en el HTML)
+const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 document.addEventListener('DOMContentLoaded', () => {
   // Verificar autenticación
   if (sessionStorage.getItem('autenticado') !== 'true') {
     window.location.replace('index.html');
     return;
+  }
+
+  // Configurar worker de PDF.js
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
   }
 
   // --- Referencias al DOM ---
@@ -29,74 +37,124 @@ document.addEventListener('DOMContentLoaded', () => {
   const campoCuitDestinatario = document.getElementById('cuit_destinatario');
 
   // --- Estado interno ---
-  // Cada entrada: { file: File, dataUrl: string, base64: string, mime_type: string }
-  let imagenes = [];
+  // Imagen: { file, tipo: 'imagen', dataUrl, base64, mime_type }
+  // PDF:    { file, tipo: 'texto', contenido, nombre }
+  let archivos = [];
 
-  // --- Agregar imágenes ---
+  // --- Agregar archivos ---
 
   btnSubirArchivo.addEventListener('click', () => inputArchivo.click());
   btnTomarFoto.addEventListener('click', () => inputCamara.click());
 
-  inputArchivo.addEventListener('change', (e) => agregarArchivos(e.target.files));
-  inputCamara.addEventListener('change', (e) => agregarArchivos(e.target.files));
+  inputArchivo.addEventListener('change', (e) => procesarArchivos(e.target.files));
+  inputCamara.addEventListener('change', (e) => procesarArchivos(e.target.files));
 
-  function agregarArchivos(files) {
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target.result;
-        // dataUrl = "data:image/jpeg;base64,AAAA..."
-        const partes = dataUrl.split(',');
-        const meta = partes[0]; // "data:image/jpeg;base64"
-        const base64 = partes[1];
-        const mime_type = meta.replace('data:', '').replace(';base64', '');
-
-        const entrada = { file, dataUrl, base64, mime_type };
-        imagenes.push(entrada);
-        renderizarMiniaturas();
-        actualizarBotonExtraer();
-      };
-      reader.readAsDataURL(file);
-    });
-    // Resetear el input para permitir seleccionar el mismo archivo nuevamente
+  async function procesarArchivos(files) {
+    for (const file of Array.from(files)) {
+      if (file.type === 'application/pdf') {
+        await agregarPDF(file);
+      } else {
+        await agregarImagen(file);
+      }
+    }
     inputArchivo.value = '';
     inputCamara.value = '';
   }
 
+  function agregarImagen(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        const partes = dataUrl.split(',');
+        const base64 = partes[1];
+        const mime_type = partes[0].replace('data:', '').replace(';base64', '');
+
+        archivos.push({ file, tipo: 'imagen', dataUrl, base64, mime_type });
+        renderizarMiniaturas();
+        actualizarBotonExtraer();
+        resolve();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function agregarPDF(file) {
+    ocultarError();
+
+    const arrayBuffer = await file.arrayBuffer();
+    let texto = '';
+
+    try {
+      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const pagina = await pdfDoc.getPage(i);
+        const contenido = await pagina.getTextContent();
+        const textoPagina = contenido.items.map((item) => item.str).join(' ');
+        texto += textoPagina + '\n';
+      }
+    } catch (err) {
+      mostrarError(`No se pudo leer el PDF: ${err.message}`);
+      return;
+    }
+
+    // PDF sin texto seleccionable (escaneado)
+    if (!texto.trim()) {
+      mostrarError('Este PDF no tiene texto extraíble. Sacá una foto o captura de pantalla.');
+      return;
+    }
+
+    archivos.push({ file, tipo: 'texto', contenido: texto.trim(), nombre: file.name });
+    renderizarMiniaturas();
+    actualizarBotonExtraer();
+  }
+
   function renderizarMiniaturas() {
     filasMiniaturas.innerHTML = '';
-    imagenes.forEach((entrada, indice) => {
+    archivos.forEach((entrada, indice) => {
       const contenedor = document.createElement('div');
       contenedor.className = 'miniatura-previa';
 
-      const img = document.createElement('img');
-      img.src = entrada.dataUrl;
-      img.alt = `Imagen ${indice + 1}`;
+      if (entrada.tipo === 'imagen') {
+        const img = document.createElement('img');
+        img.src = entrada.dataUrl;
+        img.alt = `Imagen ${indice + 1}`;
+        contenedor.appendChild(img);
+      } else {
+        // Ícono de PDF
+        const icono = document.createElement('div');
+        icono.className = 'miniatura-pdf';
+        icono.innerHTML = '📄';
+        const etiqueta = document.createElement('span');
+        etiqueta.className = 'miniatura-pdf-nombre';
+        etiqueta.textContent = entrada.nombre;
+        icono.appendChild(etiqueta);
+        contenedor.appendChild(icono);
+      }
 
       const btnEliminar = document.createElement('button');
       btnEliminar.className = 'btn-eliminar-miniatura';
       btnEliminar.textContent = '✕';
-      btnEliminar.title = 'Eliminar imagen';
+      btnEliminar.title = 'Eliminar';
       btnEliminar.addEventListener('click', () => {
-        imagenes.splice(indice, 1);
+        archivos.splice(indice, 1);
         renderizarMiniaturas();
         actualizarBotonExtraer();
       });
 
-      contenedor.appendChild(img);
       contenedor.appendChild(btnEliminar);
       filasMiniaturas.appendChild(contenedor);
     });
   }
 
   function actualizarBotonExtraer() {
-    btnExtraer.style.display = imagenes.length > 0 ? 'block' : 'none';
+    btnExtraer.style.display = archivos.length > 0 ? 'block' : 'none';
   }
 
   // --- Extraer datos con Claude ---
 
   btnExtraer.addEventListener('click', async () => {
-    if (imagenes.length === 0) return;
+    if (archivos.length === 0) return;
 
     ocultarError();
     mostrarSpinner(true);
@@ -104,10 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const payload = {
-        imagenes: imagenes.map((img) => ({
-          base64: img.base64,
-          mime_type: img.mime_type,
-        })),
+        contenidos: archivos.map((entrada) => {
+          if (entrada.tipo === 'imagen') {
+            return { tipo: 'imagen', base64: entrada.base64, mime_type: entrada.mime_type };
+          } else {
+            return { tipo: 'texto', contenido: entrada.contenido };
+          }
+        }),
       };
 
       const respuesta = await fetch('/api/extraer-factura', {
@@ -149,10 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btnGuardar.textContent = 'Guardando...';
 
     try {
-      // 1. Subir todas las imágenes al bucket de Supabase Storage
-      const urlsImagenes = await subirImagenes();
+      const urlsArchivos = await subirArchivos();
 
-      // 2. Guardar el registro en la tabla facturas
       const { error } = await supabase.from('facturas').insert({
         fecha_emision: campoFecha.value || null,
         numero_factura: campoNumero.value || null,
@@ -161,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         concepto: campoConcepto.value || null,
         importe_total: campoImporte.value ? parseFloat(campoImporte.value) : null,
         cuit_destinatario: campoCuitDestinatario.value || null,
-        imagenes_url: urlsImagenes,
+        imagenes_url: urlsArchivos,
       });
 
       if (error) throw new Error(error.message);
@@ -170,26 +229,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       mostrarError(`No se pudo guardar: ${err.message}`);
       btnGuardar.disabled = false;
-      btnGuardar.textContent = 'Guardar';
+      btnGuardar.textContent = '💾 Guardar factura';
     }
   });
 
-  async function subirImagenes() {
+  async function subirArchivos() {
     const urls = [];
 
-    for (const entrada of imagenes) {
-      const extension = entrada.mime_type.split('/')[1] || 'jpg';
+    for (const entrada of archivos) {
+      const extension = entrada.file.name.split('.').pop() || 'bin';
       const nombreArchivo = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
       const ruta = `facturas/${nombreArchivo}`;
 
-      // Convertir base64 a Blob para subir
-      const blob = base64ABlob(entrada.base64, entrada.mime_type);
-
       const { error } = await supabase.storage
         .from('facturas-imagenes')
-        .upload(ruta, blob, { contentType: entrada.mime_type });
+        .upload(ruta, entrada.file, { contentType: entrada.file.type });
 
-      if (error) throw new Error(`Error al subir imagen: ${error.message}`);
+      if (error) throw new Error(`Error al subir archivo: ${error.message}`);
 
       const { data: urlData } = supabase.storage
         .from('facturas-imagenes')
@@ -199,15 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return urls;
-  }
-
-  function base64ABlob(base64, mimeType) {
-    const bytes = atob(base64);
-    const buffer = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) {
-      buffer[i] = bytes.charCodeAt(i);
-    }
-    return new Blob([buffer], { type: mimeType });
   }
 
   // --- Utilidades de UI ---

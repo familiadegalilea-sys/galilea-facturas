@@ -544,6 +544,33 @@ body {
   z-index: 10;
 }
 
+/* Ícono de PDF en la fila de previews */
+.miniatura-pdf {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radio-sm);
+  border: 2px solid var(--borde);
+  background: #FEF9F0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.miniatura-pdf-nombre {
+  font-size: 0.55rem;
+  color: var(--texto-secundario);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 64px;
+  display: block;
+}
+
 /* Spinner */
 .spinner-contenedor {
   display: none;

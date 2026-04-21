@@ -1,16 +1,15 @@
 // Serverless function (Vercel) – Proxy hacia la API de Anthropic
-// Recibe las imágenes en base64 y devuelve los datos de la factura en JSON
+// Recibe imágenes (base64) y/o texto extraído de PDFs, devuelve datos de la factura en JSON
 
 export default async function handler(req, res) {
-  // Solo aceptar POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const { imagenes } = req.body;
+  const { contenidos } = req.body;
 
-  if (!imagenes || !Array.isArray(imagenes) || imagenes.length === 0) {
-    return res.status(400).json({ error: 'Se requiere al menos una imagen' });
+  if (!contenidos || !Array.isArray(contenidos) || contenidos.length === 0) {
+    return res.status(400).json({ error: 'Se requiere al menos una imagen o PDF' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -18,34 +17,41 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key de Anthropic no configurada' });
   }
 
-  // Construir los bloques de imagen para el mensaje de Claude
-  const bloquesImagenes = imagenes.map(({ base64, mime_type }) => ({
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: mime_type,
-      data: base64,
-    },
-  }));
+  // Construir los bloques del mensaje según el tipo de cada contenido
+  const bloques = contenidos.map((item) => {
+    if (item.tipo === 'imagen') {
+      return {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: item.mime_type,
+          data: item.base64,
+        },
+      };
+    } else {
+      // tipo === 'texto' (PDF con texto extraído)
+      return {
+        type: 'text',
+        text: `Texto extraído del PDF:\n\n${item.contenido}`,
+      };
+    }
+  });
 
-  // Añadir el texto de instrucción al final
-  const contenidoMensaje = [
-    ...bloquesImagenes,
-    {
-      type: 'text',
-      text: 'Extraé los datos de esta factura en el formato JSON indicado.',
-    },
-  ];
+  // Instrucción final
+  bloques.push({
+    type: 'text',
+    text: 'Extraé los datos de esta factura en el formato JSON indicado.',
+  });
 
   const cuerpoSolicitud = {
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
     system:
-      "Sos un asistente especializado en leer facturas argentinas. Se te pueden enviar una o varias imágenes que corresponden a partes de la misma factura. Analizalas en conjunto y extraé SOLO estos campos en formato JSON: { fecha_emision: 'YYYY-MM-DD o null', numero_factura: 'string o null', proveedor: 'string o null', cuit_proveedor: 'string o null', concepto: 'string o null', importe_total: número o null, cuit_destinatario: 'string o null' }. Respondé ÚNICAMENTE con el JSON, sin texto adicional ni backticks.",
+      "Sos un asistente especializado en leer facturas argentinas. Se te pueden enviar una o varias imágenes que corresponden a partes de la misma factura, o texto extraído de un PDF. Analizalos en conjunto y extraé SOLO estos campos en formato JSON: { fecha_emision: 'YYYY-MM-DD o null', numero_factura: 'string o null', proveedor: 'string o null', cuit_proveedor: 'string o null', concepto: 'string o null', importe_total: número o null, cuit_destinatario: 'string o null' }. Respondé ÚNICAMENTE con el JSON, sin texto adicional ni backticks.",
     messages: [
       {
         role: 'user',
-        content: contenidoMensaje,
+        content: bloques,
       },
     ],
   };
@@ -69,12 +75,10 @@ export default async function handler(req, res) {
     const respuestaJson = await respuestaAnthropic.json();
     const textoRespuesta = respuestaJson.content?.[0]?.text || '{}';
 
-    // Parsear el JSON que devuelve Claude
     let datosFact;
     try {
       datosFact = JSON.parse(textoRespuesta);
     } catch {
-      // Si Claude devuelve texto con backticks u otro formato, intentar limpiar
       const match = textoRespuesta.match(/\{[\s\S]*\}/);
       datosFact = match ? JSON.parse(match[0]) : {};
     }
