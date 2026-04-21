@@ -321,6 +321,15 @@ body {
   pointer-events: none;
 }
 
+/* Botón descargar Excel */
+.btn-descargar-excel {
+  width: 100%;
+  margin-bottom: 12px;
+  font-size: 0.88rem;
+  padding: 10px 16px;
+  color: var(--texto-secundario);
+}
+
 /* =============================================
    LISTA DE FACTURAS
    ============================================= */

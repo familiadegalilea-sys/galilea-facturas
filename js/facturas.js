@@ -15,8 +15,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const lista = document.getElementById('lista-facturas');
   const inputBusqueda = document.getElementById('busqueda');
   const mensajeSinResultados = document.getElementById('sin-resultados');
+  const btnDescargarExcel = document.getElementById('btn-descargar-excel');
 
   let todasLasFacturas = [];
+  let facturasFiltradas = [];
 
   // Cargar facturas desde Supabase
   async function cargarFacturas() {
@@ -38,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Renderizar la lista de facturas
   function renderizarLista(facturas) {
+    facturasFiltradas = facturas;
     lista.innerHTML = '';
 
     if (facturas.length === 0) {
@@ -132,6 +135,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     return `<div class="miniaturas-contenedor">${imgs}</div>`;
   }
+
+  // Descargar CSV compatible con Excel en español
+  btnDescargarExcel.addEventListener('click', () => {
+    if (facturasFiltradas.length === 0) return;
+
+    const encabezados = [
+      'Fecha de emisión',
+      'Número de Factura',
+      'Proveedor',
+      'CUIT Proveedor',
+      'Concepto',
+      'Importe Total',
+      'CUIT Destinatario',
+    ];
+
+    const filas = facturasFiltradas.map((f) => [
+      f.fecha_emision ?? '',
+      f.numero_factura ?? '',
+      f.proveedor ?? '',
+      f.cuit_proveedor ?? '',
+      f.concepto ?? '',
+      f.importe_total ?? '',
+      f.cuit_destinatario ?? '',
+    ]);
+
+    const escaparCelda = (valor) => {
+      const texto = String(valor);
+      // Si contiene punto y coma, salto de línea o comillas, encerrar entre comillas
+      if (texto.includes(';') || texto.includes('\n') || texto.includes('"')) {
+        return `"${texto.replace(/"/g, '""')}"`;
+      }
+      return texto;
+    };
+
+    const lineas = [
+      encabezados.map(escaparCelda).join(';'),
+      ...filas.map((fila) => fila.map(escaparCelda).join(';')),
+    ];
+
+    // BOM UTF-8 para que Excel muestre bien los acentos
+    const bom = '\uFEFF';
+    const csvContenido = bom + lineas.join('\r\n');
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    const nombreArchivo = `facturas-galilea-${hoy}.csv`;
+
+    const blob = new Blob([csvContenido], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombreArchivo;
+    enlace.click();
+    URL.revokeObjectURL(url);
+  });
 
   // Filtro de búsqueda
   inputBusqueda.addEventListener('input', () => {
