@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#1A3A5C">
+  <title>Galilea Facturas</title>
+  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div class="login-page">
+  <div class="login-logo">
+    <div class="icono-app">🧾</div>
+    <h1>Galilea Facturas</h1>
+    <p>Familia Galilea</p>
+  </div>
+
+  <div class="login-card">
+    <h2>Iniciar sesión</h2>
+
+    <div id="mensaje-error" class="mensaje-error"></div>
+
+    <form id="form-login">
+      <div class="grupo-form">
+        <label for="clave">Clave de acceso</label>
+        <input
+          type="password"
+          id="clave"
+          name="clave"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          required
+          autofocus
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primario btn-bloque mt-16">
+        Ingresar
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Dependencias -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/login.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</body>
+</html>

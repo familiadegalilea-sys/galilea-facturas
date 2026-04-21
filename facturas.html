@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#1A3A5C">
+  <title>Facturas – Galilea</title>
+  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div class="app-wrapper">
+  <header class="app-header">
+    <div>
+      <h1>Galilea Facturas</h1>
+      <div class="subtitulo">Historial</div>
+    </div>
+    <button id="btn-cerrar" class="btn-icono" title="Cerrar sesión">⏻</button>
+  </header>
+
+  <main class="contenido">
+    <div class="barra-busqueda">
+      <span class="icono-busqueda">🔍</span>
+      <input
+        type="search"
+        id="busqueda"
+        placeholder="Buscar por proveedor o número…"
+        autocomplete="off"
+      >
+    </div>
+
+    <p id="sin-resultados" class="sin-resultados">No se encontraron facturas.</p>
+
+    <div id="lista-facturas" class="lista-facturas">
+      <p class="cargando">Cargando facturas…</p>
+    </div>
+  </main>
+
+  <!-- Botón flotante para nueva factura -->
+  <a href="nueva-factura.html" class="fab" title="Nueva factura">＋</a>
+</div>
+
+<!-- Dependencias -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/facturas.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</body>
+</html>
